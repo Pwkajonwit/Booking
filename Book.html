@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Booking</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com" defer></script>
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js" defer></script>
+  <!-- Flatpickr CSS/JS + Thai locale -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js" defer></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Thai:wght@400;700&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    /* เปลี่ยนจาก #mainContentWrapper เป็น #siteContentWrapper เพื่อควบคุมทั้งหน้า */
+    #siteContentWrapper {
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+    }
+
+    #siteContentWrapper.content-ready {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #f6e9f3;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      pointer-events: none;
+    }
+
+    .loading-overlay.visible {
+      display: flex;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* SVG Spinner Animation */
+    .loading-spinner-svg {
+      animation: rotate 1.5s linear infinite;
+    }
+
+    @keyframes rotate {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #00000066;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      pointer-events: none;
+    }
+
+    .popup.visible {
+      display: flex;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .popup-content {
+      background: #f8f8fb;
+      color: #121625;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      width: 90%;
+      max-width: 350px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Original body styles */
+    body {
+      font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+      margin: 0;
+      color: #121625;
+      overscroll-behavior-y: contain;
+    }
+
+    ::selection {
+      background-color: #121625;
+      color: #fff;
+    }
+
+    input[type='text'],
+    input[type='tel'],
+    textarea,
+    select {
+      background-color: #fdfdfd;
+      border: 1px solid #e5e7eb;
+      color: #121625;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      width: 100%;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: #9ca3af;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: #2f1a87;
+      box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.5);
+    }
+
+    /* Flatpickr */
+
+    #inlineCalendar-wrapper {
+      background-color: #f8f8fb;
+      padding: 0.5rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .flatpickr-calendar {
+      background: transparent !important;
+      box-shadow: none !important;
+      width: 100% !important;
+      max-width: 320px;
+      margin: auto;
+    }
+
+    .flatpickr-day {
+      color: #121625 !important;
+      background: transparent !important;
+      border-radius: 0.375rem;
+      margin: 1px;
+      width: 40px !important;
+      height: 40px !important;
+      line-height: 40px !important;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .flatpickr-day:hover {
+      background-color: #fdfdfd;
+    }
+
+    .flatpickr-day.today {
+      border-color: #2f1a87 !important;
+    }
+
+    .flatpickr-day.selected,
+    .flatpickr-day.startRange,
+    .flatpickr-day.endRange {
+      background: #121625 !important;
+      color: #fff !important;
+    }
+
+    .flatpickr-day.flatpickr-disabled,
+    .flatpickr-day.prevMonthDay,
+    .flatpickr-day.nextMonthDay {
+      color: #9ca3af !important;
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    /* Time options */
+
+    #timeDropdown {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .time-option {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background: #fdfdfd;
+      color: #121625;
+      border: 1px solid transparent;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+      cursor: pointer;
+      transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .time-option:hover {
+      border-color: #2f1a87;
+      transform: translateY(-2px);
+    }
+
+    .time-option.selected {
+      background: #121625;
+      color: #fff;
+      border-color: #121625;
+    }
+
+    .badge {
+      border-radius: 9999px;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      min-width: 3rem;
+      text-align: center;
+    }
+
+    .badge.available {
+      background: #dcfce7;
+      color: #059669;
+    }
+
+    .badge.full {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .time-option.opacity-50 {
+      opacity: 0.6;
+      pointer-events: none;
+      background-color: #e5e7eb;
+    }
+
+    .time-option.opacity-50:hover {
+      transform: none;
+      border-color: transparent;
+    }
+
+    /* Steps */
+
+    .step {
+      padding: 1rem;
+      border-radius: 0.75rem;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .step:not(.step-active) {
+      opacity: 0;
+      transform: translateY(15px);
+      pointer-events: none;
+    }
+
+    .step.step-active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Service cards */
+
+    #serviceCards .service-card {
+      background: #fdfdff;
+      border: 1px solid #c6b7ff;
+      color: #121625;
+      transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+    }
+
+    #serviceCards .service-card:hover {
+      border-color: #2f1a87;
+      transform: translateY(-2px);
+    }
+
+    #serviceCards .service-card.selected {
+      background: #121625;
+      border-color: #121625;
+      color: #fff;
+    }
+
+    /* Buttons */
+
+    .btn {
+      padding: 0.875rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: #121625;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #2f1a87;
+    }
+
+    .btn-secondary {
+      background: #fdfdfd;
+      color: #121625;
+      border: 1px solid #e5e7eb;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+  </style>
+</head>
+
+<body class="bg-gradient-to-b from-purple-100 via-orange-100 to-white min-h-screen relative bg-fixed">
+  <!-- Loading Spinner -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <svg class="loading-spinner-svg" width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="30" cy="30" r="27" fill="none" stroke="#2f1a87" stroke-width="6" stroke-linecap="round"
+        stroke-dasharray="84.82 84.82" stroke-dashoffset="21.205">
+        <animateTransform attributeName="transform" type="rotate" from="0 30 30" to="360 30 30" dur="1.5s"
+          repeatCount="indefinite" />
+        <animate attributeName="stroke-dashoffset" values="21.205;105.025;21.205" dur="1.5s" repeatCount="indefinite" />
+        <animate attributeName="stroke-dasharray" values="84.82 84.82;21.205 148.435;84.82 84.82" dur="1.5s"
+          repeatCount="indefinite" />
+      </circle>
+    </svg>
+  </div>
+
+  <!-- Popup -->
+  <div class="popup" id="popup">
+    <div class="popup-content" id="popupContent"></div>
+  </div>
+
+  <!-- ***** NEW: Wrapper for ALL content that needs to be hidden/shown ***** -->
+  <div id="siteContentWrapper" class="flex flex-col min-h-screen">
+
+    <!-- Header - ตอนนี้อยู่ข้างนอก mainContentWrapper เพื่อให้ background เต็มขอบ -->
+    <header >
+      <!-- Content inside Header is still limited width and centered -->
+      <div class="flex justify-between mx-auto max-w-md  pt-6 px-6">
+        <div class="flex">
+          <div class="p-2">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" color="#2f1a87"
+              fill="none">
+              <path d="M16 2V6M8 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path
+                d="M13 4H11C7.22876 4 5.34315 4 4.17157 5.17157C3 6.34315 3 8.22876 3 12V14C3 17.7712 3 19.6569 4.17157 20.8284C5.34315 22 7.22876 22 11 22H13C16.7712 22 18.6569 22 19.8284 20.8284C21 19.6569 21 17.7712 21 14V12C21 8.22876 21 6.34315 19.8284 5.17157C18.6569 4 16.7712 4 13 4Z"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3 10H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M11.9955 14H12.0045M11.9955 18H12.0045M15.991 14H16M8 14H8.00897M8 18H8.00897"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div>
+            <p id="greetingPrefix" class="text-[#000000]" text-xs>สวัสดีตอนเช้า</p>
+            <h1 id="greetingName" class="text-[#2f1a87] font-bold text-lg"> LINE NAME </h1>
+          </div>
+        </div>
+        <img id="greetingAvatar" src="" alt="Avatar"
+          class="w-12 h-12 rounded-full object-cover border-2 border-white mr-4" />
+      </div>
+    </header>
+
+    <!-- Main content wrapper (Booking Form) - ยังคงจำกัดความกว้างและอยู่ตรงกลาง -->
+    <div id="mainContentWrapper" class="w-full max-w-md mx-auto p-4 flex-1 flex flex-col">
+
+      <!-- Booking Form -->
+      <form id="bookingForm" novalidate class="flex flex-col flex-1 relative">
+        <!-- Step 1: เลือกบริการ -->
+        <div class="step step-active" id="step1">
+          <label class="block mb-3 text-lg text-center text-[#121625] font-semibold">
+            เลือกบริการ
+          </label>
+          <div id="serviceCards" class="grid grid-cols-2 gap-4 mb-6"></div>
+          <button type="button" id="nextToStep2" class="btn btn-primary w-full">
+            ถัดไป
+          </button>
+        </div>
+
+        <!-- Step 2: เลือกวันที่ / เวลา -->
+        <div class="step hidden" id="step2">
+          <label class="block mb-1 text-center text-[#121625] font-semibold">
+            เลือกวันที่
+          </label>
+          <div id="inlineCalendar-wrapper" class="mb-4">
+            <div id="inlineCalendar"></div>
+          </div>
+          <label class="block mb-2 text-center text-[#121625] font-semibold">
+            เลือกเวลา
+          </label>
+          <div id="timeDropdown" class="mb-6 min-h-[50px]">
+            <div class="text-[#9ca3af] text-sm text-center py-2 col-span-full">
+              ยังไม่ได้เลือกวัน
+            </div>
+          </div>
+          <div class="flex space-x-3">
+            <button type="button" id="backToStep1" class="btn btn-secondary flex-1">
+              ย้อนกลับ
+            </button>
+            <button type="button" id="nextToStep3" class="btn btn-primary flex-1">
+              ถัดไป
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: กรอกข้อมูลส่วนตัว -->
+        <div class="step hidden" id="step3">
+          <label class="block mb-3 text-lg text-center text-[#121625] font-semibold">
+            ข้อมูลติดต่อ </label>
+          <input type="text" id="name" name="name" placeholder="ชื่อ-สกุล" class="mb-3 border-[#e5e7eb]" required />
+          <input type="tel" id="phonenumber" name="phonenumber" placeholder="เบอร์ติดต่อ"
+            class="mb-3 border-[#e5e7eb]" required />
+          <textarea id="note" name="note" rows="3" placeholder="หมายเหตุ (ถ้ามี)"
+            class="mb-6 p-2 resize-none border-[#e5e7eb]"></textarea>
+          <div class="flex space-x-3">
+            <button type="button" id="backToStep2" class="btn btn-secondary flex-1"> ย้อนกลับ </button>
+            <button type="button" id="nextToStep4" class="btn btn-primary flex-1"> ถัดไป </button>
+          </div>
+        </div>
+
+        <!-- Step 4: ตรวจสอบข้อมูล -->
+        <div class="step hidden" id="step4">
+          <label class="block mb-3 text-lg text-center text-[#121625] font-semibold">
+            ตรวจสอบข้อมูล </label>
+          <div class="bg-[#f8f8fb] p-4 rounded-lg mb-6 space-y-3">
+            <div class="flex justify-between items-center border-b pb-2">
+              <span>บริการ:</span><span id="confirmService" class="font-semibold"></span>
+            </div>
+            <div class="flex justify-between items-center border-b pb-2">
+              <span>วันที่:</span><span id="confirmDate" class="font-semibold"></span>
+            </div>
+            <div class="flex justify-between items-center border-b pb-2">
+              <span>เวลา:</span><span id="confirmTime" class="font-semibold"></span>
+            </div>
+            <div class="flex justify-between items-center border-b pb-2">
+              <span>ชื่อ:</span><span id="confirmName" class="font-semibold text-right"></span>
+            </div>
+            <div class="flex justify-between items-center border-b pb-2">
+              <span>เบอร์:</span><span id="confirmPhone" class="font-semibold"></span>
+            </div>
+            <div class="flex justify-between items-start pt-1">
+              <span>หมายเหตุ:</span>
+              <span id="confirmNote" class="font-semibold text-right max-w-[60%] break-words"></span>
+            </div>
+          </div>
+          <div class="flex space-x-3">
+            <button type="button" id="backToStep3" class="btn btn-secondary flex-1"> ย้อนกลับ </button>
+            <button type="submit" id="confirmBooking" class="btn btn-primary flex-1"> ยืนยันการจอง </button>
+          </div>
+        </div>
+
+        <!-- Hidden Inputs -->
+        <input type="hidden" id="time" name="time" />
+        <input type="hidden" id="selectedServices" name="selectedServices" />
+        <input type="hidden" id="selectedServiceNames" name="selectedServiceNames" />
+        <input type="hidden" id="userlineid" name="userlineid" value />
+        <input type="hidden" name="action" value="makeBooking" />
+      </form>
+    </div>
+  </div>
+  <script src="Config.js"></script>
+  <script>
+    const ENABLE_LIFF = true;
+    // Define colors as constants for easier access and consistency
+    const COLORS = {
+      primary: '#2F1A87',
+      primaryLight: '#7464b7', // แก้ให้ตรงกับ Tailwind color ที่ใช้ในปุ่ม hover
+      bg: '#fdfdfd',
+      bgCard: '#f8f8fb',
+      textMain: '#121625',
+      textMain2: '#2f1a87', // สีม่วงเข้ม
+      textPlaceholder: '#9ca3af',
+      textError: '#f87171', // Added for consistency
+      borderColor: '#e5e7eb', // Added for consistency
+    };
+
+    const $ = (id) => document.getElementById(id);
+    let monthAvailability = {},
+      selectedDate = '';
+    let currentVisibleStep = 'step1';
+    let flatpickrInstance = null;
+
+    function showLoading(on) {
+      const overlay = $('loadingOverlay');
+      if (on) {
+        overlay.style.display = 'flex';
+        setTimeout(() => overlay.classList.add('visible'), 10);
+      } else {
+        overlay.classList.remove('visible');
+        setTimeout(() => {
+          if (!overlay.classList.contains('visible'))
+            overlay.style.display = 'none';
+        }, 300);
+      }
+    }
+
+    function showPopup(msg, isSuccess = false) {
+      showLoading(false);
+      const icon = isSuccess ?
+        `<svg class="w-12 h-12 text-[${COLORS.textMain}] mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round"
+              stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>` :
+        `<svg class="w-12 h-12 text-[${COLORS.textError}] mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round"
+              stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+
+      let closeButtonAction = 'hidePopup()';
+      if (isSuccess && liff.isInClient()) {
+        closeButtonAction = 'hidePopup(); liff.closeWindow();';
+      }
+
+      $('popupContent').innerHTML = `
+          <div class="py-4 text-center">${icon}<p>${msg}</p></div>
+          <div class="mt-4 text-center">
+            <button onclick="${closeButtonAction}" class="btn btn-secondary w-full sm:w-auto px-6">ปิด</button>
+          </div>`;
+      const popupEl = $('popup');
+      popupEl.style.display = 'flex';
+      setTimeout(() => popupEl.classList.add('visible'), 10);
+    }
+
+    function hidePopup() {
+      const popupEl = $('popup');
+      popupEl.classList.remove('visible');
+      setTimeout(() => {
+        if (!popupEl.classList.contains('visible'))
+          popupEl.style.display = 'none';
+      }, 300);
+    }
+
+    function navigateToStep(target) {
+      if (currentVisibleStep === target) return;
+
+      const prev = $(currentVisibleStep);
+      const next = $(target);
+
+      prev.classList.remove('step-active');
+
+      const onPrevTransitionEnd = () => {
+        prev.classList.add('hidden');
+        prev.removeEventListener('transitionend', onPrevTransitionEnd);
+
+        next.classList.remove('hidden');
+        requestAnimationFrame(() => {
+          next.classList.add('step-active');
+        });
+
+        currentVisibleStep = target;
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      };
+
+      prev.addEventListener('transitionend', onPrevTransitionEnd);
+    }
+
+
+    function getGreeting(hour) {
+      return hour < 12 ?
+        'สวัสดีตอนเช้า' :
+        hour < 13 ?
+          'สวัสดีตอนเที่ยง' :
+          hour < 17 ?
+            'สวัสดีตอนบ่าย' :
+            hour < 19 ?
+              'สวัสดีตอนเย็น' :
+              'สวัสดีตอนกลางคืน';
+    }
+
+    async function initLiff() {
+      try {
+        await liff.init({
+          liffId: LIFF_ID
+        });
+        if (!liff.isLoggedIn()) return liff.login();
+        const p = await liff.getProfile();
+        $('greetingName').textContent = p.displayName;
+        if (p.pictureUrl) $('greetingAvatar').src = p.pictureUrl;
+        else $('greetingAvatar').style.display = 'none';
+        $('userlineid').value = p.userId;
+      } catch {
+        offlineProfile();
+      }
+    }
+
+    function offlineProfile() {
+      $('greetingName').textContent = 'ผู้ใช้งานทดสอบ';
+      $('greetingAvatar').style.display = 'none';
+      $('userlineid').value = 'OFFLINE';
+    }
+
+    async function fetchMonthAvailability(year, month) {
+      try {
+        const res = await fetch(
+          `${WEB_APP_URL}?action=getMonthAvailability&year=${year}&month=${(
+            '0' + month
+          ).slice(-2)}`,
+        );
+        if (!res.ok) throw new Error();
+        monthAvailability = await res.json();
+      } catch {
+        monthAvailability = {};
+        showPopup('ไม่สามารถโหลดปฏิทินได้');
+      }
+    }
+
+    async function fetchServiceData() {
+      try {
+        const res = await fetch(`${WEB_APP_URL}?action=fetchServices`);
+        if (!res.ok) throw new Error();
+        const services = await res.json();
+        const container = $('serviceCards');
+        container.innerHTML = '';
+        services.forEach((s) => {
+          const c = document.createElement('div');
+          c.className =
+            `service-card p-4 border border-[${COLORS.borderColor}] rounded-lg cursor-pointer shadow-sm text-[${COLORS.textMain}]`;
+          c.dataset.id = s.id;
+          c.dataset.name = s.name;
+          c.dataset.price = s.price;
+          c.innerHTML = `
+              <div class="font-bold text-md mb-1 text-[${COLORS.primaryLight}]">${s.name}</div>
+              <div class="text-sm text-[${COLORS.textPlaceholder}]">ราคา: ${s.price} บาท</div>
+            `;
+          c.onclick = () => {
+            c.classList.toggle('selected');
+            updateSelectedServices();
+          };
+          container.appendChild(c);
+        });
+      } catch {
+        showPopup('ไม่สามารถโหลดบริการได้');
+      }
+    }
+
+    async function fetchHolidayDates() {
+      try {
+        const res = await fetch(
+          `${WEB_APP_URL}?action=checkAvailability&getHolidays=true`,
+        );
+        if (!res.ok) throw new Error();
+        const j = await res.json();
+        window.holidayDates = Array.isArray(j.holidays) ? j.holidays : [];
+      } catch {
+        window.holidayDates = [];
+      }
+    }
+
+    function formatDate(d) {
+      const y = d.getFullYear();
+      const m = ('0' + (d.getMonth() + 1)).slice(-2);
+      const da = ('0' + d.getDate()).slice(-2);
+      return `${y}-${m}-${da}`;
+    }
+
+    function initCalendar() {
+      flatpickrInstance = flatpickr('#inlineCalendar', {
+        inline: true,
+        locale: 'th',
+        dateFormat: 'Y-m-d',
+        minDate: 'today',
+        disable: [
+          (d) => {
+            const k = formatDate(d);
+            return (
+              (window.holidayDates || []).includes(k) ||
+              monthAvailability[k] === 'full'
+            );
+          },
+        ],
+        onDayCreate: (dObj, dStr, fp, dayElem) => {
+          const k = formatDate(dayElem.dateObj);
+          if ((window.holidayDates || []).includes(k)) {
+            dayElem.innerHTML += `<span class="block text-xs text-[${COLORS.textError}] opacity-75 mt-[-8px]">หยุด</span>`;
+          }
+        },
+        onMonthChange: async (_, __, fp) => {
+          showLoading(true);
+          await fetchMonthAvailability(fp.currentYear, fp.currentMonth + 1);
+          fp.redraw();
+          showLoading(false);
+        },
+        onChange: (_, dateStr) => {
+          selectedDate = dateStr;
+          if (dateStr) checkAvailability(dateStr);
+          else
+            $(
+              'timeDropdown',
+            ).innerHTML = `<div class="text-[${COLORS.textPlaceholder}] text-sm text-center py-2 col-span-full">ยังไม่ได้เลือกวัน</div>`;
+        },
+      });
+    }
+
+    async function checkAvailability(dateStr) {
+      $(
+        'timeDropdown',
+      ).innerHTML = `<div class="text-[${COLORS.textPlaceholder}] text-sm text-center py-2 col-span-full">โปรดรอสักครู่...</div>`;
+      try {
+        const res = await fetch(
+          `${WEB_APP_URL}?action=checkAvailability&date=${dateStr}`,
+        );
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderTimes(data.availability);
+      } catch (e) {
+        $(
+          'timeDropdown',
+        ).innerHTML = `<div class="text-[${COLORS.textError}] text-sm text-center py-2 col-span-full">ไม่สามารถโหลดเวลาได้</div>`;
+        showPopup(e.message || 'โหลดเวลาไม่สำเร็จ');
+      }
+    }
+
+    function renderTimes(avail) {
+      const td = $('timeDropdown');
+      td.innerHTML = '';
+      if (!Object.keys(avail).length) {
+        td.innerHTML = `<div class="text-[${COLORS.textPlaceholder}] text-sm text-center py-2 col-span-full">ไม่มีช่วงเวลาว่าง</div>`;
+        return;
+      }
+      Object.entries(avail).forEach(([t, i]) => {
+        const div = document.createElement('div');
+        div.className = `time-option ${i.remaining > 0 ? '' : 'opacity-50'}`;
+        div.innerHTML = `<span>${t}</span><span class="badge ${i.remaining > 0 ? 'available' : 'full'
+          }">${i.remaining}/${i.total}</span>`;
+        if (i.remaining > 0) div.onclick = () => selectTime(t, div);
+        td.appendChild(div);
+      });
+    }
+
+    function selectTime(t, el) {
+      [...$('timeDropdown').children].forEach((c) =>
+        c.classList.remove('selected'),
+      );
+      el.classList.add('selected');
+      $('time').value = t;
+    }
+
+    function updateSelectedServices() {
+      const sel = [...$('serviceCards').children].filter((c) =>
+        c.classList.contains('selected'),
+      );
+      $('selectedServices').value = JSON.stringify(
+        sel.map((c) => c.dataset.id),
+      );
+      $('selectedServiceNames').value = sel
+        .map((c) => `${c.dataset.name} (฿${c.dataset.price})`)
+        .join(', ');
+    }
+
+    function updateConfirmation() {
+      const raw = $('selectedServiceNames').value || '-';
+      const el = $('confirmService');
+      if (raw.includes(', ')) {
+        el.innerHTML = raw
+          .split(', ')
+          .map((s) => `<div>${s}</div>`)
+          .join('');
+      } else {
+        el.textContent = raw;
+      }
+      $('confirmDate').textContent = selectedDate ?
+        selectedDate.split('-').reverse().join('/') :
+        '-';
+      $('confirmTime').textContent = $('time').value || '-';
+      $('confirmName').textContent = $('name').value || '-';
+      $('confirmPhone').textContent = $('phonenumber').value || '-';
+      $('confirmNote').textContent = $('note').value.trim() || '-';
+    }
+
+    // Navigation & Validation
+    $('nextToStep2').onclick = () => {
+      if (!JSON.parse($('selectedServices').value || '[]').length)
+        return showPopup('กรุณาเลือกบริการอย่างน้อย 1 รายการ');
+      navigateToStep('step2');
+    };
+    $('backToStep1').onclick = () => navigateToStep('step1');
+    $('nextToStep3').onclick = () => {
+      if (!selectedDate) return showPopup('กรุณาเลือกวันที่');
+      if (!$('time').value) return showPopup('กรุณาเลือกเวลา');
+      navigateToStep('step3');
+    };
+    $('backToStep2').onclick = () => navigateToStep('step2');
+    $('nextToStep4').onclick = () => {
+      if (!$('name').value.trim()) return showPopup('กรุณากรอกชื่อ-สกุล');
+      if (!$('phonenumber').value.trim())
+        return showPopup('กรุณากรอกเบอร์ติดต่อ');
+      if (!/^[0-9]{9,10}$/.test($('phonenumber').value.trim()))
+        return showPopup('รูปแบบเบอร์ติดต่อไม่ถูกต้อง');
+      updateConfirmation();
+      navigateToStep('step4');
+    };
+    $('backToStep3').onclick = () => navigateToStep('step3');
+
+    // Submit
+    $('bookingForm').onsubmit = async (e) => {
+      e.preventDefault();
+      showLoading(true);
+      const fd = new FormData($('bookingForm'));
+      fd.append('date', selectedDate);
+      try {
+        const resp = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: fd
+        });
+        const text = await resp.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch {
+          result = {
+            success: resp.ok,
+            message: text
+          };
+        }
+        if (!result.success)
+          throw new Error(result.message || 'การจองไม่สำเร็จ');
+      } catch (err) {
+        console.error('Submit error:', err);
+        return showPopup(err.message || 'ส่งข้อมูลไม่สำเร็จ');
+      }
+      showLoading(false);
+      showPopup('การจองสำเร็จแล้ว!', true); // isSuccess = true here
+      await sendFlexMessage();
+      $('bookingForm').reset();
+      updateSelectedServices();
+      $(
+        'timeDropdown',
+      ).innerHTML = `<div class="text-[${COLORS.textPlaceholder}] text-sm text-center py-2 col-span-full">ยังไม่ได้เลือกวัน</div>`;
+      $('time').value = '';
+      selectedDate = '';
+      if (flatpickrInstance) flatpickrInstance.clear();
+      navigateToStep('step1');
+    };
+
+    async function sendFlexMessage() {
+      if (!liff.isInClient()) return; // Only send Flex Message if in LIFF client
+
+      const servicesRaw = $('selectedServiceNames').value || '';
+      const servicesList = servicesRaw
+        .split(', ')
+        .filter((s) => s.trim().length);
+      const serviceContents = servicesList.map((s) => ({
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'md',
+        contents: [{
+          type: 'text',
+          text: '•',
+          size: 'sm',
+          color: COLORS.textMain2, // Color from COLORS constant
+          flex: 1,
+        }, {
+          type: 'text',
+          text: s,
+          size: 'sm',
+          wrap: true,
+          color: COLORS.textMain2, // Color from COLORS constant
+          flex: 9,
+        },],
+      }));
+      if (!serviceContents.length) {
+        serviceContents.push({
+          type: 'text',
+          text: '-',
+          size: 'sm',
+          color: COLORS.textMain2, // Color from COLORS constant
+        });
+      }
+      const name = $('name').value;
+      const phone = $('phonenumber').value;
+      const date = selectedDate ?
+        selectedDate.split('-').reverse().join('/') :
+        '-';
+      const timeVal = $('time').value || '-';
+      const note = $('note').value || '-';
+      const bubble = {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: COLORS.primary, // Color from COLORS constant
+          contents: [{
+            type: 'text',
+            text: 'บันทึกการจองสำเร็จ',
+            weight: 'bold',
+            size: 'xs',
+            align: 'center',
+            color: '#ffffff', // White text on primary background
+          },],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          paddingAll: 'xl',
+          backgroundColor: COLORS.bgCard, // Color from COLORS constant
+          contents: [{
+            type: 'text',
+            text: 'บริการ:',
+            size: 'sm',
+            color: COLORS.textMain2 // Color from COLORS constant
+          },
+          ...serviceContents, {
+            type: 'separator',
+            margin: 'md',
+            color: COLORS.textMain // Color from COLORS constant
+          },
+          makeFieldBox('วันที่', date),
+          makeFieldBox('เวลา', timeVal), {
+            type: 'separator',
+            margin: 'md',
+            color: COLORS.textMain2 // Color from COLORS constant
+          },
+          makeFieldBox('ชื่อ', name),
+          makeFieldBox('เบอร์', phone),
+          makeFieldBox('หมายเหตุ', note),
+          ],
+        },
+        styles: {
+          header: {
+            separator: false
+          }
+        },
+      };
+      try {
+        await liff.sendMessages([{
+          type: 'flex',
+          altText: 'รายละเอียดการจองของคุณ',
+          contents: bubble,
+        },]);
+      } catch (e) {
+        console.error('Error sending flex message:', e);
+      }
+    }
+
+    function makeFieldBox(label, value) {
+      return {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [{
+          type: 'text',
+          text: label + ':',
+          color: COLORS.textPlaceholder, // Color from COLORS constant
+          size: 'sm',
+          flex: 2,
+        }, {
+          type: 'text',
+          text: value,
+          color: COLORS.textMain, // Color from COLORS constant
+          size: 'sm',
+          wrap: true,
+          flex: 5,
+        },],
+      };
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      showLoading(true);
+
+      // สำหรับการแสดงผล Step แรก
+      $(currentVisibleStep).classList.add('step-active');
+      $(currentVisibleStep).classList.remove('hidden');
+
+      $('greetingPrefix').textContent = getGreeting(new Date().getHours());
+      if (ENABLE_LIFF) await initLiff();
+      else offlineProfile();
+      await Promise.allSettled([
+        fetchServiceData(),
+        fetchHolidayDates(),
+        fetchMonthAvailability(
+          new Date().getFullYear(),
+          new Date().getMonth() + 1,
+        ),
+      ]);
+      initCalendar();
+
+      showLoading(false);
+
+      // แสดงเนื้อหาหลักทั้งหมดเมื่อโหลดและตั้งค่าเริ่มต้นเสร็จสมบูรณ์
+      // เปลี่ยนจาก mainContentWrapper เป็น siteContentWrapper
+      $('siteContentWrapper').classList.add('content-ready');
+    });
+  </script>
+</body>
+
+</html>
